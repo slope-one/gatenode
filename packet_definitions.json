@@ -1,0 +1,54 @@
+{
+	idle: {},
+	focus_change: {
+		length: 1,
+		fields: {
+			focused: 'boolean'
+		}
+	},
+	chat: {
+		length: -1
+	},
+	item_on_player: {
+		length: 8,
+		fields: {
+			frame_id: 'short',
+			player_id: 'short',
+			item_id: 'short',
+			inv_offset: 'short'
+		}
+	},
+	item_option_2: {
+		length: 6,
+		fields: {
+			item_id: 'short',
+			inv_offset: 'short',
+			frame_id: 'short'
+		}
+	},
+	npc_option_1: {
+		length: 2,
+		fields: {
+			npc_id: 'short'
+		}
+	},
+	npc_option_2: {
+		length: 2,
+		fields: {
+			npc_id: 'short'
+		}
+	},
+	npc_option_3: {
+		length: 2,
+		fields: {
+			npc_id: 'short'
+		}
+	},
+	command: {
+		length: -1,
+		fields: [
+			{ input: 'string' }
+		]
+	},
+	
+}
