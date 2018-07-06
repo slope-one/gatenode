@@ -4,6 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.BasicProperties;
+import com.rabbitmq.client.Channel;
 
 import one.slope.slip.io.DataType;
 import one.slope.slip.io.SuperBuffer;
@@ -14,29 +24,48 @@ import one.slope.slip.io.packet.PacketSize;
 import one.slope.slip.io.packet.PacketType;
 
 public class Client implements Runnable {
-	public static final int BUFFER_SIZE = 1024 * 10; // TODO move to configuration - 10kb to start with
+	public transient static final int BUFFER_SIZE = 1024 * 10; // TODO move to configuration - 10kb to start with
 
 	// TODO queued messages for writing (after the encoders have run - independent of this class)
 	
-	private final PacketDefinitionProvider provider;
-	private final SuperBuffer buffer = new SuperBuffer(BUFFER_SIZE);
-	private final OutputStream output;
-	private final InputStream input;
-	private final Socket socket;
+	private transient final PacketDefinitionProvider provider;
+	private transient final SuperBuffer buffer = new SuperBuffer(BUFFER_SIZE);
+	private transient final OutputStream output;
+	private transient final InputStream input;
+	private transient final Channel channel;
+	private transient final Socket socket;
+	
+	private final String id;
 	
 	private PacketType state = PacketType.NEGOTIATION;
 	
 	// threads and IO are easier, spawn more nodes = more power, let's keep it simple.
-	public Client(Socket socket, PacketDefinitionProvider provider) throws IOException {
+	public Client(Socket socket, PacketDefinitionProvider provider, Channel channel) throws IOException {
 		this.socket = socket;
 		this.output = socket.getOutputStream();
 		this.input = socket.getInputStream();
 		this.provider = provider;
+		this.channel = channel;
+		this.id = UUID.randomUUID().toString();
 	}
 
 	@Override
 	public void run() {
 		boolean connected = true;
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		AMQP.BasicProperties.Builder propertyBuilder = new AMQP.BasicProperties.Builder();
+		
+		propertyBuilder.correlationId("");
+		propertyBuilder.replyTo("outbound");
+		
+		try {
+			channel.queueDeclare("inbound", false, false, false, null);
+			channel.queueDeclare("outbound", false, false, false, null);
+		}
+		catch (Exception ex) {
+			ex.printStackTrace();
+			connected = false;
+		}
 		
 		System.out.println("Client connected: " + socket.getRemoteSocketAddress());
 		
@@ -86,14 +115,20 @@ public class Client implements Runnable {
 							buf.mark();
 							
 							// create new packet object, decoding the data into the k/v map
-							Packet packet = new Packet(def, buf);
-							packet.decode();
+							Packet p = new Packet(def, buf);
+							p.decode();
+							
+							Map<String, Object> message = new HashMap<>();
+							message.put("client", this);
+							message.put("message", p);
+							
+							String json = gson.toJson(message);
 							
 							// print some information about the packet for debug purposes
-							System.out.println("Read packet \"" + def.name() + "\" - ID " + def.id() + ", SIZE " + def.size() + ", LENGTH " + def.length() + "");
-							System.out.println(packet.values());
-							
-							// TODO pass off to the message queue
+							//System.out.println("Read packet \"" + def.name() + "\" - ID " + def.id() + ", SIZE " + def.size() + ", LENGTH " + def.length() + "");
+							//System.out.println(packet.values());
+							System.out.println(json);
+							channel.basicPublish("", "inbound", null, json.getBytes());
 						}
 					}
 					catch (Exception ex) {
@@ -115,11 +150,16 @@ public class Client implements Runnable {
 		// TODO stuff when the socket closes, send a message?
 		
 		try {
+			channel.close();
 			socket.close();
 		}
-		catch (IOException ex) {
+		catch (IOException | TimeoutException ex) {
 			// socket close fail, who cares
 		}
+	}
+	
+	public Channel channel() {
+		return channel;
 	}
 	
 	public PacketType state() {

@@ -22,5 +22,23 @@
 	    <artifactId>amqp-client</artifactId>
 	    <version>5.3.0</version>
 	</dependency>
+	<dependency>
+	    <groupId>com.dieselpoint</groupId>
+	    <artifactId>norm</artifactId>
+	    <version>0.8.2</version>
+	</dependency>
+	<!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+	<dependency>
+	    <groupId>mysql</groupId>
+	    <artifactId>mysql-connector-java</artifactId>
+	    <version>8.0.11</version>
+	</dependency>
+	<!--  Gson: Java to Json conversion -->
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.8.5</version>
+      <scope>compile</scope>
+    </dependency>
   </dependencies>
 </project>
